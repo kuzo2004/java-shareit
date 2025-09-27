@@ -63,6 +63,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Optional<User> getUserById(Long userId) {
+
         return Optional.ofNullable(users.get(userId));
     }
 
@@ -93,8 +94,6 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void deleteUser(Long userId) {
-        User existingUser = getUserById(userId)
-                .orElseThrow(() -> new NotFoundException("Пользователь с id=" + userId + "не существует"));
         users.remove(userId);
     }
 

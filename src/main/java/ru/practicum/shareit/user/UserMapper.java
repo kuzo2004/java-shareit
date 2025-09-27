@@ -5,6 +5,9 @@ import ru.practicum.shareit.user.model.User;
 
 public class UserMapper {
     public static UserDto toUserDto(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("Пользователь не может быть пустым");
+        }
         return new UserDto(
                 user.getId(),
                 user.getName(),
@@ -12,7 +15,10 @@ public class UserMapper {
         );
     }
 
-    public static User toUserFromDto(UserDto userDto) {
+    public static User toUser(UserDto userDto) {
+        if (userDto == null) {
+            throw new IllegalArgumentException("Пользователь не может быть пустым");
+        }
         User user = new User();
         user.setId(userDto.getId());
         user.setName(userDto.getName());

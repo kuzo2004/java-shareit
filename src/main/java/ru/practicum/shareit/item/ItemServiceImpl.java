@@ -5,7 +5,6 @@ import org.springframework.stereotype.Service;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.dto.ItemDtoForOwner;
-import ru.practicum.shareit.item.dto.ItemDtoPatch;
 import ru.practicum.shareit.item.dto.ItemDtoPost;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.UserService;
@@ -40,7 +39,7 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public ItemDto updateItem(Long itemId, ItemDtoPatch itemDtoPatch, Long ownerId) {
+    public ItemDto updateItem(Long itemId, ItemDto itemDto, Long ownerId) {
 
         // Проверяем, что товар существует
         Item existingItem = getItemById(itemId)
@@ -57,14 +56,14 @@ public class ItemServiceImpl implements ItemService {
         }
 
         // Обновляем только разрешенные поля
-        if (itemDtoPatch.getName() != null) {
-            existingItem.setName(itemDtoPatch.getName());
+        if (itemDto.getName() != null) {
+            existingItem.setName(itemDto.getName());
         }
-        if (itemDtoPatch.getDescription() != null) {
-            existingItem.setDescription(itemDtoPatch.getDescription());
+        if (itemDto.getDescription() != null) {
+            existingItem.setDescription(itemDto.getDescription());
         }
-        if (itemDtoPatch.getAvailable() != null) {
-            existingItem.setAvailable(itemDtoPatch.getAvailable());
+        if (itemDto.getAvailable() != null) {
+            existingItem.setAvailable(itemDto.getAvailable());
         }
 
         return ItemMapper.toItemDto(existingItem);

@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ItemDtoPost {
-    private Long id;
     @NotBlank(message = "Имя не может быть пустым")
     private String name;
     @NotBlank(message = "Описание не может быть пустым")

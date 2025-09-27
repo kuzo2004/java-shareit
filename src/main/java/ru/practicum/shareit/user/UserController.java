@@ -23,6 +23,7 @@ public class UserController {
 
     @PostMapping
     public UserDto createUser(@Valid @RequestBody User user) {
+
         return userService.createUser(user);
     }
 
@@ -34,16 +35,19 @@ public class UserController {
 
     @GetMapping("/{userId}")
     public UserDto getUser(@PathVariable Long userId) {
+
         return userService.getUserDtoById(userId);
     }
 
     @GetMapping
     public List<UserDto> getAllUsers() {
+
         return userService.getAllUsers();
     }
 
     @DeleteMapping("/{userId}")
-    private void deleteUser(@PathVariable Long userId) {
+    public void deleteUser(@PathVariable Long userId) {
+
         userService.deleteUser(userId);
     }
 }
