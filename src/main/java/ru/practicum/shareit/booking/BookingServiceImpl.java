@@ -29,17 +29,18 @@ public class BookingServiceImpl implements BookingService {
     private final BookingRepository bookingRepository;
     private final UserService userService;
     private final ItemService itemService;
+    private final BookingMapper bookingMapper;
 
     @Override
     @Transactional
     public BookingDto createBooking(BookingDtoPost bookingDtoPost, Long bookerId) {
-        // Проверяем существование пользователя
+        // Проверяем существование пользователя — дальше нужен объект booker, берем всю сущность
         User booker = userService.getUserById(bookerId)
                                  .orElseThrow(() ->
                                          new NotFoundException(
                                                  "Пользователь с id=" + bookerId + " не существует"));
 
-        // Проверяем существование вещи
+        // Проверяем существование вещи — дальше нужен объект item, берем всю сущность
         Item item = itemService.getItemById(bookingDtoPost.getItemId())
                                .orElseThrow(() ->
                                        new NotFoundException(
@@ -65,11 +66,11 @@ public class BookingServiceImpl implements BookingService {
                 bookingDtoPost.getStart(), bookingDtoPost.getEnd(),
                 bookingDtoPost.getItemId(), bookerId);
 
-        Booking booking = BookingMapper.toBookingFromPost(bookingDtoPost, item, booker);
+        Booking booking = bookingMapper.toBookingFromPost(bookingDtoPost, item, booker);
         Booking savedBooking = bookingRepository.save(booking);
 
         log.info("ПОСЛЕ Booking created successfully: id={}", savedBooking.getId());
-        return BookingMapper.toBookingDto(savedBooking);
+        return bookingMapper.toBookingDto(savedBooking);
     }
 
     @Override
@@ -79,6 +80,7 @@ public class BookingServiceImpl implements BookingService {
                                            .orElseThrow(() ->
                                                    new NotFoundException(
                                                            "Бронирование с id=" + bookingId + " не существует"));
+
 
         // Проверяем, что пользователь - владелец вещи
         if (!booking.getItem().getOwner().getId().equals(ownerId)) {
@@ -92,7 +94,7 @@ public class BookingServiceImpl implements BookingService {
 
         booking.setStatus(approved ? BookingStatus.APPROVED : BookingStatus.REJECTED);
         Booking updatedBooking = bookingRepository.save(booking);
-        return BookingMapper.toBookingDto(updatedBooking);
+        return bookingMapper.toBookingDto(updatedBooking);
     }
 
     @Override
@@ -102,19 +104,26 @@ public class BookingServiceImpl implements BookingService {
                                                    new NotFoundException(
                                                            "Бронирование с id=" + bookingId + " не существует"));
 
-        // Проверяем, что пользователь имеет доступ к бронированию
+        // Проверяем существование пользователя (только факт, без загрузки)
+        if (!userService.existsById(userId)) {
+            throw new NotFoundException("Пользователь с id=" + userId + " не существует");
+        }
+
+        // Проверяем, что пользователь имеет доступ к бронированию (либо инициатор, либо владелец)
         if (!booking.getBooker().getId().equals(userId)
                 && !booking.getItem().getOwner().getId().equals(userId)) {
             throw new AccessDeniedException("Пользователь не имеет доступа к данному бронированию");
         }
 
-        return BookingMapper.toBookingDto(booking);
+        return bookingMapper.toBookingDto(booking);
     }
 
     @Override
     public List<BookingDto> getBookingsByBooker(Long bookerId, String state) {
-        userService.getUserById(bookerId)
-                   .orElseThrow(() -> new NotFoundException("Пользователь с id=" + bookerId + " не существует"));
+        // Проверяем существование пользователя (только факт, без загрузки)
+        if (!userService.existsById(bookerId)) {
+            throw new NotFoundException("Пользователь с id=" + bookerId + " не существует");
+        }
 
         BookingStateParam stateParam = BookingStateParam.valueOf(state);
 
@@ -129,20 +138,20 @@ public class BookingServiceImpl implements BookingService {
             case WAITING -> bookingRepository.findByBookerIdAndStatusOrderByStartDesc(bookerId, BookingStatus.WAITING);
             case REJECTED ->
                     bookingRepository.findByBookerIdAndStatusOrderByStartDesc(bookerId, BookingStatus.REJECTED);
-            default -> throw new IllegalStateException("Unknown state: " + state);
+            default -> throw new ValidationException("Неизвестное состояние: " + state);
         };
 
         return bookings.stream()
-                       .map(BookingMapper::toBookingDto)
+                       .map(bookingMapper::toBookingDto)
                        .collect(Collectors.toList());
     }
 
     @Override
     public List<BookingDto> getBookingsByOwner(Long ownerId, String state) {
-        // Проверяем существование пользователя
-        userService.getUserById(ownerId)
-                   .orElseThrow(() -> new NotFoundException("Владелец с id=" + ownerId + " не существует"));
-
+        // Проверяем существование пользователя (только факт — без загрузки User)
+        if (!userService.existsById(ownerId)) {
+            throw new NotFoundException("Владелец с id=" + ownerId + " не существует");
+        }
         BookingStateParam stateParam = BookingStateParam.valueOf(state);
 
         List<Booking> bookings;
@@ -157,11 +166,11 @@ public class BookingServiceImpl implements BookingService {
                     bookingRepository.findByItemOwnerIdAndStatusOrderByStartDesc(ownerId, BookingStatus.WAITING);
             case REJECTED ->
                     bookingRepository.findByItemOwnerIdAndStatusOrderByStartDesc(ownerId, BookingStatus.REJECTED);
-            default -> throw new IllegalStateException("Unknown state: " + state);
+            default -> throw new ValidationException("Неизвестное состояние: " + state);
         };
 
         return bookings.stream()
-                       .map(BookingMapper::toBookingDto)
+                       .map(bookingMapper::toBookingDto)
                        .collect(Collectors.toList());
     }
 }

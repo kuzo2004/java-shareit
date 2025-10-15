@@ -1,5 +1,9 @@
 package ru.practicum.shareit.item;
 
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 import ru.practicum.shareit.booking.dto.BookingDtoShort;
 import ru.practicum.shareit.item.dto.CommentDto;
 import ru.practicum.shareit.item.dto.CommentDtoPost;
@@ -8,80 +12,43 @@ import ru.practicum.shareit.item.dto.ItemDtoPost;
 import ru.practicum.shareit.item.dto.ItemInfoDto;
 import ru.practicum.shareit.item.model.Comment;
 import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.user.UserMapper;
 import ru.practicum.shareit.user.model.User;
 
-import java.time.LocalDateTime;
+@Mapper(componentModel = "spring",
+        uses = {UserMapper.class},
+        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+public interface ItemMapper {
 
-public class ItemMapper {
-    public static ItemDto toItemDto(Item item) {
-        if (item == null) {
-            throw new IllegalArgumentException("Товар не может быть пустым");
-        }
-        return new ItemDto(
-                item.getId(),
-                item.getName(),
-                item.getDescription(),
-                item.getAvailable(),
-                null,
-                null
-        );
-    }
+    // Item -> ItemDto
+    ItemDto toItemDto(Item item);
 
-    public static Item toItemFromPost(ItemDtoPost itemDto) {
-        if (itemDto == null) {
-            throw new IllegalArgumentException("Товар не может быть пустым");
-        }
-        Item item = new Item();
-        item.setName(itemDto.getName());
-        item.setDescription(itemDto.getDescription());
-        item.setAvailable(itemDto.getAvailable());
-        return item;
-    }
+    // ItemDtoPost -> Item
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "owner", ignore = true)
+    Item toItemFromPost(ItemDtoPost itemDtoPost);
 
-    public static ItemInfoDto toItemInfoDto(
-            Item item, BookingDtoShort lastBooking, BookingDtoShort nextBooking) {
-        if (item == null) {
-            throw new IllegalArgumentException("Товар не может быть пустым");
-        }
-        return new ItemInfoDto(
-                item.getId(),
-                item.getName(),
-                item.getDescription(),
-                item.getAvailable(),
-                lastBooking,
-                nextBooking,
-                null, // requestId добавляется в сервисе
-                null // comments добавляются в сервисе
-        );
-    }
+    // Item -> ItemInfoDto с бронированиями
+    @Mapping(target = "id", source = "item.id")
+    // явно берём id из сущности
+    ItemInfoDto toItemInfoDto(Item item, BookingDtoShort lastBooking, BookingDtoShort nextBooking);
 
-    // тоже ItemInfoDto, но когда явно передаются null в lastBooking и nextBooking (из-за Postman теста)
-    public static ItemInfoDto toItemInfoDto(Item item) {
+    // Postman требует для
+    default ItemInfoDto toItemInfoDto(Item item) {
         return toItemInfoDto(item, null, null);
     }
 
-    public static CommentDto toCommentDto(Comment comment) {
-        if (comment == null) {
-            throw new IllegalArgumentException("Комментарий не может быть пустым");
-        }
-        return new CommentDto(
-                comment.getId(),
-                comment.getText(),
-                comment.getAuthor().getName(),
-                comment.getCreated()
-        );
-    }
+    // ItemDto -> Item
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "owner", ignore = true)
+    void updateItemFromDto(ItemDto itemDto, @MappingTarget Item item);
 
-    public static Comment toComment(CommentDtoPost commentDtoPost, Item item, User author) {
-        if (commentDtoPost == null) {
-            throw new IllegalArgumentException("Комментарий не может быть пустым");
-        }
-        Comment comment = new Comment();
-        comment.setText(commentDtoPost.getText());
-        comment.setItem(item);
-        comment.setAuthor(author);
-        comment.setCreated(LocalDateTime.now());
-        return comment;
-    }
+    // Comment -> CommentDto (с заполнением authorName)
+    @Mapping(target = "authorName", source = "author.name")
+    CommentDto toCommentDto(Comment comment);
+
+    // CommentDtoPost -> Comment
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "created", expression = "java(java.time.LocalDateTime.now())")
+    Comment toComment(CommentDtoPost commentDtoPost, Item item, User author);
 }
-

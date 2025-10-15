@@ -19,12 +19,13 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
+    private final UserMapper userMapper;
 
     @Override
     @Transactional
     public UserDto createUser(User user) {
         // Проверка уникальности email
-        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
+        if (userRepository.existsByEmail(user.getEmail())) {
             throw new ValidationExceptionDuplicate("Email уже используется другим пользователем");
         }
 
@@ -33,7 +34,7 @@ public class UserServiceImpl implements UserService {
         }
 
         User savedUser = userRepository.save(user);
-        return UserMapper.toUserDto(savedUser);
+        return userMapper.toUserDto(savedUser);
     }
 
     @Override
@@ -42,29 +43,17 @@ public class UserServiceImpl implements UserService {
         User existingUser = userRepository.findById(userId)
                                           .orElseThrow(() -> new NotFoundException("Пользователь с id=" + userId + "не существует"));
 
-        String newName = userDto.getName();
-        String newEmail = userDto.getEmail();
-
-        // Обновляем имя, если передано
-        if (newName != null) {
-            existingUser.setName(newName);
-        }
+        userMapper.updateUserFromDto(userDto, existingUser);
 
         // Обновляем email, если передан и отличается от текущего
-        if (newEmail != null && !newEmail.equals(existingUser.getEmail())) {
-            // Проверка уникальности email
-            if (userRepository.existsByEmailAndIdNot(newEmail, userId)) {
+        if (userDto.getEmail() != null && !userDto.getEmail().equals(existingUser.getEmail())) {
+            if (userRepository.existsByEmailAndIdNot(userDto.getEmail(), userId)) {
                 throw new ValidationExceptionDuplicate("Email уже используется другим пользователем");
             }
-            existingUser.setEmail(newEmail);
-
-            // Если имя отсутствует или пустое — подставляем email как имя
-            if (newName == null || newName.isBlank()) {
-                existingUser.setName(newEmail);
-            }
         }
+
         User updatedUser = userRepository.save(existingUser);
-        return UserMapper.toUserDto(updatedUser);
+        return userMapper.toUserDto(updatedUser);
     }
 
     @Override
@@ -79,13 +68,13 @@ public class UserServiceImpl implements UserService {
                                           .orElseThrow(() ->
                                                   new NotFoundException(
                                                           "Пользователь с id=" + userId + "не существует"));
-        return UserMapper.toUserDto(existingUser);
+        return userMapper.toUserDto(existingUser);
     }
 
     @Override
     public List<UserDto> getAllUsers() {
         return userRepository.findAll().stream()
-                             .map(UserMapper::toUserDto)
+                             .map(userMapper::toUserDto)
                              .collect(Collectors.toList());
     }
 
@@ -94,5 +83,11 @@ public class UserServiceImpl implements UserService {
     public void deleteUser(Long userId) {
 
         userRepository.deleteById(userId);
+    }
+
+    @Override
+    public boolean existsById(Long userId) {
+
+        return userRepository.existsById(userId);
     }
 }

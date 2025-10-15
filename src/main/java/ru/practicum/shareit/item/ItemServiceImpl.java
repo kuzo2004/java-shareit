@@ -3,6 +3,7 @@ package ru.practicum.shareit.item;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.shareit.booking.BookingMapper;
 import ru.practicum.shareit.booking.BookingRepository;
 import ru.practicum.shareit.booking.dto.BookingDtoShort;
 import ru.practicum.shareit.booking.model.Booking;
@@ -34,6 +35,8 @@ public class ItemServiceImpl implements ItemService {
     private final UserService userService;
     private final BookingRepository bookingRepository;
     private final CommentRepository commentRepository;
+    private final ItemMapper itemMapper;
+    private final BookingMapper bookingMapper;
 
 
     @Override
@@ -45,10 +48,10 @@ public class ItemServiceImpl implements ItemService {
                                                new NotFoundException(
                                                        "Пользователь с id=" + ownerId + "не существует"));
 
-        Item item = ItemMapper.toItemFromPost(itemDtoPost);
+        Item item = itemMapper.toItemFromPost(itemDtoPost);
         item.setOwner(existingUser);
         Item savedItem = itemRepository.save(item);
-        return ItemMapper.toItemDto(item);
+        return itemMapper.toItemDto(item);
     }
 
     @Override
@@ -61,28 +64,20 @@ public class ItemServiceImpl implements ItemService {
                                                   "Товар с id=" + itemId + "не существует"));
 
 
-        // Проверяем, что владелец существует
-        userService.getUserById(ownerId)
-                   .orElseThrow(() -> new NotFoundException("Пользователь с id=" + ownerId + "не существует"));
-
+        // Проверяем, что владелец существует, без загрузки сущности
+        if (!userService.existsById(ownerId)) {
+            throw new NotFoundException("Пользователь с id=" + ownerId + " не существует");
+        }
         // Проверяем, что владелец совпадает
         if (!Objects.equals(existingItem.getOwner().getId(), ownerId)) {
             throw new RuntimeException("Только владелец может редактировать параметры вещи");
         }
 
         // Обновляем только разрешенные поля
-        if (itemDto.getName() != null) {
-            existingItem.setName(itemDto.getName());
-        }
-        if (itemDto.getDescription() != null) {
-            existingItem.setDescription(itemDto.getDescription());
-        }
-        if (itemDto.getAvailable() != null) {
-            existingItem.setAvailable(itemDto.getAvailable());
-        }
-        Item updatedItem = itemRepository.save(existingItem);
+        itemMapper.updateItemFromDto(itemDto, existingItem);
 
-        return ItemMapper.toItemDto(updatedItem);
+        Item updatedItem = itemRepository.save(existingItem);
+        return itemMapper.toItemDto(updatedItem);
     }
 
     @Override
@@ -98,7 +93,7 @@ public class ItemServiceImpl implements ItemService {
                                                   "Товар с id=" + itemId + "не существует"));
 
         List<CommentDto> comments = getCommentsByItem(itemId);
-        ItemInfoDto itemInfoDto = ItemMapper.toItemInfoDto(existingItem);
+        ItemInfoDto itemInfoDto = itemMapper.toItemInfoDto(existingItem);
         itemInfoDto.setComments(comments);
         return itemInfoDto;
     }
@@ -129,7 +124,7 @@ public class ItemServiceImpl implements ItemService {
                         BookingDtoShort nextBooking = findNextBooking(itemBookings, now);
                         List<CommentDto> comments = getCommentsByItem(item.getId());
 
-                        ItemInfoDto itemInfoDto = ItemMapper.toItemInfoDto(item, lastBooking, nextBooking);
+                        ItemInfoDto itemInfoDto = itemMapper.toItemInfoDto(item, lastBooking, nextBooking);
                         itemInfoDto.setComments(comments);
                         return itemInfoDto;
                     })
@@ -141,7 +136,7 @@ public class ItemServiceImpl implements ItemService {
         return bookings.stream()
                        .filter(booking -> booking.getEnd().isBefore(now))
                        .max(Comparator.comparing(Booking::getEnd))
-                       .map(this::toBookingDtoShort)
+                       .map(bookingMapper::toBookingDtoShort)
                        .orElse(null);
     }
 
@@ -150,18 +145,8 @@ public class ItemServiceImpl implements ItemService {
         return bookings.stream()
                        .filter(booking -> booking.getStart().isAfter(now))
                        .min(Comparator.comparing(Booking::getStart))
-                       .map(this::toBookingDtoShort)
+                       .map(bookingMapper::toBookingDtoShort)
                        .orElse(null);
-    }
-
-    // метод для преобразования Booking в BookingDtoShort
-    private BookingDtoShort toBookingDtoShort(Booking booking) {
-        return new BookingDtoShort(
-                booking.getId(),
-                booking.getStart(),
-                booking.getEnd(),
-                booking.getBooker().getId()
-        );
     }
 
     @Override
@@ -172,19 +157,19 @@ public class ItemServiceImpl implements ItemService {
         String searchText = text.toLowerCase();
         List<Item> foundItems = itemRepository.searchAvailableItems(searchText);
         return foundItems.stream()
-                         .map(ItemMapper::toItemDto)
+                         .map(itemMapper::toItemDto)
                          .collect(Collectors.toList());
     }
 
     @Override
     @Transactional
     public CommentDto addComment(Long itemId, CommentDtoPost commentDtoPost, Long authorId) {
-        // Проверяем существование пользователя
+        // Проверяем существование пользователя, дальше нужен объект author, берем всю сущность
         User author = userService.getUserById(authorId)
                                  .orElseThrow(() -> new NotFoundException(
                                          "Пользователь с id=" + authorId + " не существует"));
 
-        // Проверяем существование вещи
+        // Проверяем существование вещи, дальше нужен объект item, берем всю сущность
         Item item = getItemById(itemId)
                 .orElseThrow(() -> new NotFoundException("Вещь с id=" + itemId + " не существует"));
 
@@ -197,16 +182,16 @@ public class ItemServiceImpl implements ItemService {
             throw new ValidationException("Пользователь не брал вещь в аренду или аренда еще не завершена");
         }
 
-        Comment comment = ItemMapper.toComment(commentDtoPost, item, author);
+        Comment comment = itemMapper.toComment(commentDtoPost, item, author);
         Comment savedComment = commentRepository.save(comment);
-        return ItemMapper.toCommentDto(savedComment);
+        return itemMapper.toCommentDto(savedComment);
     }
 
     @Override
     public List<CommentDto> getCommentsByItem(Long itemId) {
         List<Comment> comments = commentRepository.findByItemId(itemId);
         return comments.stream()
-                       .map(ItemMapper::toCommentDto)
+                       .map(itemMapper::toCommentDto)
                        .collect(Collectors.toList());
     }
 
@@ -214,7 +199,7 @@ public class ItemServiceImpl implements ItemService {
     public List<CommentDto> getCommentsByOwner(Long ownerId) {
         List<Comment> comments = commentRepository.findByItemOwnerId(ownerId);
         return comments.stream()
-                       .map(ItemMapper::toCommentDto)
+                       .map(itemMapper::toCommentDto)
                        .collect(Collectors.toList());
     }
 }
