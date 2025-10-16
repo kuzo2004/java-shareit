@@ -1,55 +1,54 @@
 package ru.practicum.shareit.item;
 
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
+import ru.practicum.shareit.booking.dto.BookingDtoShort;
+import ru.practicum.shareit.item.dto.CommentDto;
+import ru.practicum.shareit.item.dto.CommentDtoPost;
 import ru.practicum.shareit.item.dto.ItemDto;
-import ru.practicum.shareit.item.dto.ItemDtoForOwner;
 import ru.practicum.shareit.item.dto.ItemDtoPost;
+import ru.practicum.shareit.item.dto.ItemInfoDto;
+import ru.practicum.shareit.item.model.Comment;
 import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.user.UserMapper;
+import ru.practicum.shareit.user.model.User;
 
-public class ItemMapper {
-    public static ItemDto toItemDto(Item item) {
-        if (item == null) {
-            throw new IllegalArgumentException("Товар не может быть пустым");
-        }
-        return new ItemDto(
-                item.getId(),
-                item.getName(),
-                item.getDescription(),
-                item.getAvailable(),
-                null
-        );
+@Mapper(componentModel = "spring",
+        uses = {UserMapper.class},
+        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+public interface ItemMapper {
+
+    // Item -> ItemDto
+    ItemDto toItemDto(Item item);
+
+    // ItemDtoPost -> Item
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "owner", ignore = true)
+    Item toItemFromPost(ItemDtoPost itemDtoPost);
+
+    // Item -> ItemInfoDto с бронированиями
+    @Mapping(target = "id", source = "item.id")
+    // явно берём id из сущности
+    ItemInfoDto toItemInfoDto(Item item, BookingDtoShort lastBooking, BookingDtoShort nextBooking);
+
+    // Postman требует для
+    default ItemInfoDto toItemInfoDto(Item item) {
+        return toItemInfoDto(item, null, null);
     }
 
-    public static Item toItemFromDto(ItemDto itemDto) {
-        if (itemDto == null) {
-            throw new IllegalArgumentException("Товар не может быть пустым");
-        }
-        Item item = new Item();
-        item.setId(itemDto.getId());
-        item.setName(itemDto.getName());
-        item.setDescription(itemDto.getDescription());
-        item.setAvailable(itemDto.getAvailable());
-        return item;
-    }
+    // ItemDto -> Item
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "owner", ignore = true)
+    void updateItemFromDto(ItemDto itemDto, @MappingTarget Item item);
 
-    public static Item toItemFromPost(ItemDtoPost itemDto) {
-        if (itemDto == null) {
-            throw new IllegalArgumentException("Товар не может быть пустым");
-        }
-        Item item = new Item();
-        item.setName(itemDto.getName());
-        item.setDescription(itemDto.getDescription());
-        item.setAvailable(itemDto.getAvailable());
-        return item;
-    }
+    // Comment -> CommentDto (с заполнением authorName)
+    @Mapping(target = "authorName", source = "author.name")
+    CommentDto toCommentDto(Comment comment);
 
-    public static ItemDtoForOwner toItemDtoForOwner(Item item) {
-        if (item == null) {
-            throw new IllegalArgumentException("Товар не может быть пустым");
-        }
-        return new ItemDtoForOwner(
-                item.getName(),
-                item.getDescription()
-        );
-    }
+    // CommentDtoPost -> Comment
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "created", expression = "java(java.time.LocalDateTime.now())")
+    Comment toComment(CommentDtoPost commentDtoPost, Item item, User author);
 }
-

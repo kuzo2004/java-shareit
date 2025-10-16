@@ -4,10 +4,14 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class ItemDtoForOwner {
-    private String name;
-    private String description;
+public class CommentDto {
+    private Long id;
+    private String text;
+    private String authorName;
+    private LocalDateTime created;
 }

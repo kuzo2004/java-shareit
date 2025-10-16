@@ -9,8 +9,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,33 +16,31 @@ import lombok.Setter;
 import lombok.ToString;
 import ru.practicum.shareit.user.model.User;
 
+import java.time.LocalDateTime;
+
 @Entity
-@Table(name = "items")
+@Table(name = "comments")
 @Getter
 @Setter
 @ToString
 @AllArgsConstructor
 @NoArgsConstructor
-public class Item {
+public class Comment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    @NotBlank(message = "Имя не может быть пустым")
-    private String name;
-
     @Column(nullable = false, length = 1000)
-    @NotBlank(message = "Описание не может быть пустым")
-    private String description;
-
-    @Column(name = "is_available", nullable = false)
-    @NotNull(message = "Доступность для заказа не может быть пустой")
-    private Boolean available;
+    private String text;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_id", nullable = false)
-    @NotNull(message = "Владелец вещи должен быть определен")
-    private User owner;
-}
+    @JoinColumn(name = "item_id", nullable = false)
+    private Item item;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "author_id", nullable = false)
+    private User author;
+
+    @Column(nullable = false)
+    private LocalDateTime created;
+}
